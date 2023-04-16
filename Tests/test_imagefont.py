@@ -83,7 +83,7 @@ class TestImageFont:
             self._render(f)
 
     def test_non_ascii_path(self, tmp_path):
-        tempfile = str(tmp_path / ("temp_" + chr(128) + ".ttf"))
+        tempfile = str(tmp_path / f"temp_{chr(128)}.ttf")
         try:
             shutil.copy(FONT_PATH, tempfile)
         except UnicodeEncodeError:
@@ -166,7 +166,7 @@ class TestImageFont:
     )
     def test_getlength(self, text, mode, font, size, length_basic, length_raqm):
         f = ImageFont.truetype(
-            "Tests/fonts/" + font, size, layout_engine=self.LAYOUT_ENGINE
+            f"Tests/fonts/{font}", size, layout_engine=self.LAYOUT_ENGINE
         )
 
         im = Image.new(mode, (1, 1), 0)
@@ -220,9 +220,7 @@ class TestImageFont:
             draw = ImageDraw.Draw(im)
             draw.multiline_text((0, 0), TEST_TEXT, font=ttf, align=align)
 
-            assert_image_similar_tofile(
-                im, "Tests/images/multiline_text" + ext + ".png", 0.01
-            )
+            assert_image_similar_tofile(im, f"Tests/images/multiline_text{ext}.png", 0.01)
 
     def test_unknown_align(self):
         im = Image.new(mode="RGB", size=(300, 100))
@@ -562,22 +560,22 @@ class TestImageFont:
         # Test that the font loads both with and without the
         # extension
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Arial.ttf", "Arial.ttf"
+            monkeypatch, f"{font_directory}/Arial.ttf", "Arial.ttf"
         )
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Arial.ttf", "Arial"
+            monkeypatch, f"{font_directory}/Arial.ttf", "Arial"
         )
 
         # Test that non-ttf fonts can be found without the
         # extension
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Single.otf", "Single"
+            monkeypatch, f"{font_directory}/Single.otf", "Single"
         )
 
         # Test that ttf fonts are preferred if the extension is
         # not specified
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Duplicate.ttf", "Duplicate"
+            monkeypatch, f"{font_directory}/Duplicate.ttf", "Duplicate"
         )
 
     @pytest.mark.skipif(is_win32(), reason="requires Unix or macOS")
@@ -600,16 +598,16 @@ class TestImageFont:
 
         monkeypatch.setattr(os, "walk", fake_walker)
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Arial.ttf", "Arial.ttf"
+            monkeypatch, f"{font_directory}/Arial.ttf", "Arial.ttf"
         )
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Arial.ttf", "Arial"
+            monkeypatch, f"{font_directory}/Arial.ttf", "Arial"
         )
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Single.otf", "Single"
+            monkeypatch, f"{font_directory}/Single.otf", "Single"
         )
         self._test_fake_loading_font(
-            monkeypatch, font_directory + "/Duplicate.ttf", "Duplicate"
+            monkeypatch, f"{font_directory}/Duplicate.ttf", "Duplicate"
         )
 
     def test_imagefont_getters(self):
@@ -975,7 +973,7 @@ class TestImageFont:
 
             assert_image_similar_tofile(im, "Tests/images/cbdt_notocoloremoji.png", 6.2)
         except OSError as e:  # pragma: no cover
-            assert str(e) in ("unimplemented feature", "unknown file format")
+            assert str(e) in {"unimplemented feature", "unknown file format"}
             pytest.skip("freetype compiled without libpng or CBDT support")
 
     def test_cbdt_mask(self):
@@ -995,7 +993,7 @@ class TestImageFont:
                 im, "Tests/images/cbdt_notocoloremoji_mask.png", 6.2
             )
         except OSError as e:  # pragma: no cover
-            assert str(e) in ("unimplemented feature", "unknown file format")
+            assert str(e) in {"unimplemented feature", "unknown file format"}
             pytest.skip("freetype compiled without libpng or CBDT support")
 
     def test_sbix(self):
@@ -1013,7 +1011,7 @@ class TestImageFont:
 
             assert_image_similar_tofile(im, "Tests/images/chromacheck-sbix.png", 1)
         except OSError as e:  # pragma: no cover
-            assert str(e) in ("unimplemented feature", "unknown file format")
+            assert str(e) in {"unimplemented feature", "unknown file format"}
             pytest.skip("freetype compiled without libpng or SBIX support")
 
     def test_sbix_mask(self):
@@ -1031,7 +1029,7 @@ class TestImageFont:
 
             assert_image_similar_tofile(im, "Tests/images/chromacheck-sbix_mask.png", 1)
         except OSError as e:  # pragma: no cover
-            assert str(e) in ("unimplemented feature", "unknown file format")
+            assert str(e) in {"unimplemented feature", "unknown file format"}
             pytest.skip("freetype compiled without libpng or SBIX support")
 
     @skip_unless_feature_version("freetype2", "2.10.0")

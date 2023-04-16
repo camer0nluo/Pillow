@@ -142,11 +142,7 @@ class TestFileLibTiff(LibTiffTestCase):
         with Image.open("Tests/images/hopper_g4.tif") as img:
             img.save(f, tiffinfo=img.tag)
 
-            if legacy_api:
-                original = img.tag.named()
-            else:
-                original = img.tag_v2.named()
-
+            original = img.tag.named() if legacy_api else img.tag_v2.named()
         # PhotometricInterpretation is set from SAVE_INFO,
         # not the original image.
         ignored = [
@@ -157,11 +153,7 @@ class TestFileLibTiff(LibTiffTestCase):
         ]
 
         with Image.open(f) as loaded:
-            if legacy_api:
-                reloaded = loaded.tag.named()
-            else:
-                reloaded = loaded.tag_v2.named()
-
+            reloaded = loaded.tag.named() if legacy_api else loaded.tag_v2.named()
         for tag, value in itertools.chain(reloaded.items(), original.items()):
             if tag not in ignored:
                 val = original[tag]
@@ -941,7 +933,7 @@ class TestFileLibTiff(LibTiffTestCase):
         im.save(out, exif=tags, compression=compression)
 
         with Image.open(out) as reloaded:
-            for tag in tags.keys():
+            for tag in tags:
                 assert tag not in reloaded.getexif()
 
     def test_old_style_jpeg(self):
@@ -964,7 +956,7 @@ class TestFileLibTiff(LibTiffTestCase):
     def test_orientation(self):
         with Image.open("Tests/images/g4_orientation_1.tif") as base_im:
             for i in range(2, 9):
-                with Image.open("Tests/images/g4_orientation_" + str(i) + ".tif") as im:
+                with Image.open(f"Tests/images/g4_orientation_{str(i)}.tif") as im:
                     im.load()
 
                     assert_image_similar(base_im, im, 0.7)

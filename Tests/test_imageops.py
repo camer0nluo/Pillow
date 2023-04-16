@@ -126,7 +126,7 @@ def test_pad():
             assert new_im.size == new_size
 
             assert_image_similar_tofile(
-                new_im, "Tests/images/imageops_pad_" + label + "_" + str(i) + ".jpg", 6
+                new_im, f"Tests/images/imageops_pad_{label}_{str(i)}.jpg", 6
             )
 
 
@@ -312,7 +312,7 @@ def test_exif_transpose():
     if features.check("webp") and features.check("webp_anim"):
         exts.append(".webp")
     for ext in exts:
-        with Image.open("Tests/images/hopper" + ext) as base_im:
+        with Image.open(f"Tests/images/hopper{ext}") as base_im:
 
             def check(orientation_im):
                 for im in [
@@ -339,14 +339,12 @@ def test_exif_transpose():
 
             check(base_im)
             for i in range(2, 9):
-                with Image.open(
-                    "Tests/images/hopper_orientation_" + str(i) + ext
-                ) as orientation_im:
+                with Image.open(f"Tests/images/hopper_orientation_{str(i)}{ext}") as orientation_im:
                     check(orientation_im)
 
     # Orientation from "XML:com.adobe.xmp" info key
     for suffix in ("", "_exiftool"):
-        with Image.open("Tests/images/xmp_tags_orientation" + suffix + ".png") as im:
+        with Image.open(f"Tests/images/xmp_tags_orientation{suffix}.png") as im:
             assert im.getexif()[0x0112] == 3
 
             transposed_im = ImageOps.exif_transpose(im)

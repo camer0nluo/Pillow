@@ -8,9 +8,9 @@ if __name__ == "__main__":
     print("    f._load_pilfont_data(")
     print(f"         # {os.path.basename(font)}")
     print("         BytesIO(base64.decodestring(b'''")
-    with open(font + ".pil", "rb") as fp:
+    with open(f"{font}.pil", "rb") as fp:
         print(base64.b64encode(fp.read()).decode())
     print("''')), Image.open(BytesIO(base64.decodestring(b'''")
-    with open(font + ".pbm", "rb") as fp:
+    with open(f"{font}.pbm", "rb") as fp:
         print(base64.b64encode(fp.read()).decode())
     print("'''))))")

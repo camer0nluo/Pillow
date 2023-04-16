@@ -16,7 +16,7 @@ def cmd_set(name, value):
 
 def cmd_append(name, value):
     op = "path " if name == "PATH" else f"set {name}="
-    return op + f"%{name}%;{value}"
+    return f"{op}%{name}%;{value}"
 
 
 def cmd_copy(src, tgt):
@@ -38,7 +38,7 @@ def cmd_rmdir(path):
 def cmd_nmake(makefile=None, target="", params=None):
     if params is None:
         params = ""
-    elif isinstance(params, list) or isinstance(params, tuple):
+    elif isinstance(params, (list, tuple)):
         params = " ".join(params)
     else:
         params = str(params)
@@ -57,7 +57,7 @@ def cmd_nmake(makefile=None, target="", params=None):
 def cmd_cmake(params=None, file="."):
     if params is None:
         params = ""
-    elif isinstance(params, list) or isinstance(params, tuple):
+    elif isinstance(params, (list, tuple)):
         params = " ".join(params)
     else:
         params = str(params)
@@ -89,8 +89,6 @@ def cmd_msbuild(
     )
 
 
-SF_PROJECTS = "https://sourceforge.net/projects"
-
 architectures = {
     "x86": {"vcvars_arch": "x86", "msbuild_arch": "Win32"},
     "x64": {"vcvars_arch": "x86_amd64", "msbuild_arch": "x64"},
@@ -104,11 +102,11 @@ header = [
     cmd_append("PATH", "{bin_dir}"),
 ]
 
+SF_PROJECTS = "https://sourceforge.net/projects"
 # dependencies, listed in order of compilation
 deps = {
     "libjpeg": {
-        "url": SF_PROJECTS
-        + "/libjpeg-turbo/files/2.1.4/libjpeg-turbo-2.1.4.tar.gz/download",
+        "url": f"{SF_PROJECTS}/libjpeg-turbo/files/2.1.4/libjpeg-turbo-2.1.4.tar.gz/download",
         "filename": "libjpeg-turbo-2.1.4.tar.gz",
         "dir": "libjpeg-turbo-2.1.4",
         "build": [
@@ -173,7 +171,7 @@ deps = {
         "libs": [r"output\release-static\{architecture}\lib\*.lib"],
     },
     "libpng": {
-        "url": SF_PROJECTS + "/libpng/files/libpng16/1.6.37/lpng1637.zip/download",
+        "url": f"{SF_PROJECTS}/libpng/files/libpng16/1.6.37/lpng1637.zip/download",
         "filename": "lpng1637.zip",
         "dir": "lpng1637",
         "build": [
@@ -211,10 +209,14 @@ deps = {
         "build": [
             cmd_rmdir("objs"),
             cmd_msbuild(
-                r"builds\windows\vc2010\freetype.sln", "Release Static", "Clean"
+                r"builds\windows\vc2010\freetype.sln",
+                "Release Static",
+                "Clean",
             ),
             cmd_msbuild(
-                r"builds\windows\vc2010\freetype.sln", "Release Static", "Build"
+                r"builds\windows\vc2010\freetype.sln",
+                "Release Static",
+                "Build",
             ),
             cmd_xcopy("include", "{inc_dir}"),
         ],
@@ -222,7 +224,7 @@ deps = {
         # "bins": [r"objs\{msbuild_arch}\Release\freetype.dll"],
     },
     "lcms2": {
-        "url": SF_PROJECTS + "/lcms/files/lcms/2.13/lcms2-2.13.1.tar.gz/download",
+        "url": f"{SF_PROJECTS}/lcms/files/lcms/2.13/lcms2-2.13.1.tar.gz/download",
         "filename": "lcms2-2.13.1.tar.gz",
         "dir": "lcms2-2.13.1",
         "patch": {
@@ -251,7 +253,9 @@ deps = {
         "filename": "openjpeg-2.5.0.tar.gz",
         "dir": "openjpeg-2.5.0",
         "build": [
-            cmd_cmake(("-DBUILD_THIRDPARTY:BOOL=OFF", "-DBUILD_SHARED_LIBS:BOOL=OFF")),
+            cmd_cmake(
+                ("-DBUILD_THIRDPARTY:BOOL=OFF", "-DBUILD_SHARED_LIBS:BOOL=OFF")
+            ),
             cmd_nmake(target="clean"),
             cmd_nmake(target="openjp2"),
             cmd_mkdir(r"{inc_dir}\openjpeg-2.5.0"),
@@ -391,7 +395,7 @@ def extract_dep(url, filename):
         else:
             raise RuntimeError(ex)
 
-    print("Extracting " + filename)
+    print(f"Extracting {filename}")
     if filename.endswith(".zip"):
         with zipfile.ZipFile(file) as zf:
             zf.extractall(sources_dir)
@@ -399,28 +403,24 @@ def extract_dep(url, filename):
         with tarfile.open(file, "r:gz") as tgz:
             tgz.extractall(sources_dir)
     else:
-        raise RuntimeError("Unknown archive type: " + filename)
+        raise RuntimeError(f"Unknown archive type: {filename}")
 
 
 def write_script(name, lines):
     name = os.path.join(build_dir, name)
     lines = [line.format(**prefs) for line in lines]
-    print("Writing " + name)
+    print(f"Writing {name}")
     with open(name, "w") as f:
         f.write("\n\r".join(lines))
     if verbose:
         for line in lines:
-            print("    " + line)
+            print(f"    {line}")
 
 
 def get_footer(dep):
-    lines = []
-    for out in dep.get("headers", []):
-        lines.append(cmd_copy(out, "{inc_dir}"))
-    for out in dep.get("libs", []):
-        lines.append(cmd_copy(out, "{lib_dir}"))
-    for out in dep.get("bins", []):
-        lines.append(cmd_copy(out, "{bin_dir}"))
+    lines = [cmd_copy(out, "{inc_dir}") for out in dep.get("headers", [])]
+    lines.extend(cmd_copy(out, "{lib_dir}") for out in dep.get("libs", []))
+    lines.extend(cmd_copy(out, "{bin_dir}") for out in dep.get("bins", []))
     return lines
 
 
@@ -449,7 +449,7 @@ def build_dep(name):
         "@echo " + ("=" * 70),
         f"@echo ==== {banner:<60} ====",
         "@echo " + ("=" * 70),
-        "cd /D %s" % os.path.join(sources_dir, dir),
+        f"cd /D {os.path.join(sources_dir, dir)}",
         *prefs["header"],
         *dep.get("build", []),
         *get_footer(dep),
@@ -505,7 +505,7 @@ if __name__ == "__main__":
             verbose = True
         elif arg == "--no-imagequant":
             disabled += ["libimagequant"]
-        elif arg == "--no-raqm" or arg == "--no-fribidi":
+        elif arg in ["--no-raqm", "--no-fribidi"]:
             disabled += ["fribidi"]
         elif arg.startswith("--depends="):
             depends_dir = arg[10:]
@@ -518,9 +518,9 @@ if __name__ == "__main__":
         elif arg.startswith("--dir="):
             build_dir = arg[6:]
         elif arg == "--srcdir":
-            sources_dir = os.path.sep + "src"
+            sources_dir = f"{os.path.sep}src"
         else:
-            raise ValueError("Unknown parameter: " + arg)
+            raise ValueError(f"Unknown parameter: {arg}")
 
     # dependency cache directory
     os.makedirs(depends_dir, exist_ok=True)

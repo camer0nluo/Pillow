@@ -165,6 +165,6 @@ if __name__ == "__main__":
         print("*** %s tests of %d failed." % status)
         exit_status = 1
     else:
-        print("--- %s tests passed." % status[1])
+        print(f"--- {status[1]} tests passed.")
 
     sys.exit(exit_status)

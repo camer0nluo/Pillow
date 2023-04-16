@@ -466,7 +466,7 @@ def test_extended_information():
 
 def test_non_ascii_path(tmp_path):
     skip_missing()
-    tempfile = str(tmp_path / ("temp_" + chr(128) + ".icc"))
+    tempfile = str(tmp_path / f"temp_{chr(128)}.icc")
     try:
         shutil.copy(SRGB, tempfile)
     except UnicodeEncodeError:

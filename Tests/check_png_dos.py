@@ -55,7 +55,5 @@ def test_dos_total_memory():
         assert "Too much memory" in msg
         return
 
-    total_len = 0
-    for txt in im2.text.values():
-        total_len += len(txt)
+    total_len = sum(len(txt) for txt in im2.text.values())
     assert total_len < 64 * 1024 * 1024, "Total text chunks greater than 64M"

@@ -534,7 +534,7 @@ def test_save_dispose(tmp_path):
         Image.new("L", (100, 100), "#111"),
         Image.new("L", (100, 100), "#222"),
     ]
-    for method in range(0, 4):
+    for method in range(4):
         im_list[0].save(out, save_all=True, append_images=im_list[1:], disposal=method)
         with Image.open(out) as img:
             for _ in range(2):
@@ -599,14 +599,14 @@ def test_dispose2_diff(tmp_path):
     ]
 
     im_list = []
-    for i in range(len(circles)):
+    for circle in circles:
         # Transparent BG
         img = Image.new("RGBA", (100, 100), (255, 255, 255, 0))
 
         # Two circles per frame
         d = ImageDraw.Draw(img)
-        d.ellipse([(0, 30), (40, 70)], fill=circles[i][0])
-        d.ellipse([(60, 30), (100, 70)], fill=circles[i][1])
+        d.ellipse([(0, 30), (40, 70)], fill=circle[0])
+        d.ellipse([(60, 30), (100, 70)], fill=circle[1])
 
         im_list.append(img)
 
@@ -632,14 +632,11 @@ def test_dispose2_diff(tmp_path):
 def test_dispose2_background(tmp_path):
     out = str(tmp_path / "temp.gif")
 
-    im_list = []
-
     im = Image.new("P", (100, 100))
     d = ImageDraw.Draw(im)
     d.rectangle([(50, 0), (100, 100)], fill="#f00")
     d.rectangle([(0, 0), (50, 100)], fill="#0f0")
-    im_list.append(im)
-
+    im_list = [im]
     im = Image.new("P", (100, 100))
     d = ImageDraw.Draw(im)
     d.rectangle([(0, 0), (100, 50)], fill="#f00")

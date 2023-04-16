@@ -296,7 +296,7 @@ class TestFileJpeg:
         # TiffImagePlugin.IFDRational. This class had a bug in __eq__,
         # breaking the self-equality of Exif data
         exifs = []
-        for i in range(2):
+        for _ in range(2):
             with Image.open("Tests/images/exif-200dpcm.jpg") as im:
                 exifs.append(im._getexif())
         assert exifs[0] == exifs[1]

@@ -10,9 +10,7 @@ def test_putpalette():
         im = hopper(mode).copy()
         im.putpalette(list(range(256)) * 3)
         p = im.getpalette()
-        if p:
-            return im.mode, p[:10]
-        return im.mode
+        return (im.mode, p[:10]) if p else im.mode
 
     with pytest.raises(ValueError):
         palette("1")

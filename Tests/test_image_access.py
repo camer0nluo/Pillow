@@ -129,10 +129,7 @@ class TestImageGetPixel(AccessTest):
     @staticmethod
     def color(mode):
         bands = Image.getmodebands(mode)
-        if bands == 1:
-            return 1
-        else:
-            return tuple(range(1, bands + 1))
+        return 1 if bands == 1 else tuple(range(1, bands + 1))
 
     def check(self, mode, c=None):
         if not c:
@@ -446,7 +443,7 @@ int main(int argc, char* argv[])
         compiler.link_executable(objects, "embed_pil")
 
         env = os.environ.copy()
-        env["PATH"] = sys.prefix + ";" + env["PATH"]
+        env["PATH"] = f"{sys.prefix};" + env["PATH"]
 
         # do not display the Windows Error Reporting dialog
         ctypes.windll.kernel32.SetErrorMode(0x0002)

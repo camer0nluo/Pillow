@@ -70,6 +70,6 @@ def test_load_set_dpi():
 def test_save(ext, tmp_path):
     im = hopper()
 
-    tmpfile = str(tmp_path / ("temp" + ext))
+    tmpfile = str(tmp_path / f"temp{ext}")
     with pytest.raises(OSError):
         im.save(tmpfile)

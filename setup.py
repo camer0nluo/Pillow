@@ -154,9 +154,9 @@ def _find_library_dirs_ldconfig():
 
     if sys.platform.startswith("linux") or sys.platform.startswith("gnu"):
         if struct.calcsize("l") == 4:
-            machine = os.uname()[4] + "-32"
+            machine = f"{os.uname()[4]}-32"
         else:
-            machine = os.uname()[4] + "-64"
+            machine = f"{os.uname()[4]}-64"
         mach_map = {
             "x86_64-64": "libc6,x86-64",
             "ppc64-64": "libc6,64bit",

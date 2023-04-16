@@ -124,7 +124,7 @@ class TestFileTiff:
         ],
     )
     def test_wrong_bits_per_sample(self, file_name, mode, size, tile):
-        with Image.open("Tests/images/" + file_name) as im:
+        with Image.open(f"Tests/images/{file_name}") as im:
             assert im.mode == mode
             assert im.size == size
             assert im.tile == tile
@@ -180,9 +180,7 @@ class TestFileTiff:
         [(None, 72.8), (2, 72.8), (3, 184.912)],
     )
     def test_load_float_dpi(self, resolution_unit, dpi):
-        with Image.open(
-            "Tests/images/hopper_float_dpi_" + str(resolution_unit) + ".tif"
-        ) as im:
+        with Image.open(f"Tests/images/hopper_float_dpi_{str(resolution_unit)}.tif") as im:
             assert im.tag_v2.get(RESOLUTION_UNIT) == resolution_unit
             assert im.info["dpi"] == (dpi, dpi)
 
@@ -417,9 +415,9 @@ class TestFileTiff:
             assert len_before == len_after + 1
 
     def test_load_byte(self):
+        data = b"abc"
         for legacy_api in [False, True]:
             ifd = TiffImagePlugin.ImageFileDirectory_v2()
-            data = b"abc"
             ret = ifd.load_byte(data, legacy_api)
             assert ret == b"abc"
 

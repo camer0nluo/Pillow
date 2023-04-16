@@ -212,7 +212,7 @@ def test_thumbnail():
     # Issue #619
     # Arrange
     files = [FILE1, FILE2]
-    for fn in files:
+    for _ in files:
         with Image.open(FILE1) as im:
             new_size = (100, 100)
             im.thumbnail(new_size)
@@ -233,9 +233,7 @@ def test_readline(tmp_path):
     strings = ["something", "else", "baz", "bif"]
 
     def _test_readline(t, ending):
-        ending = "Failure with line ending: %s" % (
-            "".join("%s" % ord(s) for s in ending)
-        )
+        ending = f'Failure with line ending: {"".join(f"{ord(s)}" for s in ending)}'
         assert t.readline().strip("\r\n") == "something", ending
         assert t.readline().strip("\r\n") == "else", ending
         assert t.readline().strip("\r\n") == "baz", ending

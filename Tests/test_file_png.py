@@ -302,7 +302,7 @@ class TestFilePng:
 
     def test_save_greyscale_transparency(self, tmp_path):
         for mode, num_transparent in {"1": 1994, "L": 559, "I": 559}.items():
-            in_file = "Tests/images/" + mode.lower() + "_trns.png"
+            in_file = f"Tests/images/{mode.lower()}_trns.png"
             with Image.open(in_file) as im:
                 assert im.mode == mode
                 assert im.info["transparency"] == 255
@@ -443,11 +443,11 @@ class TestFilePng:
             im = roundtrip(im, pnginfo=info)
             assert im.info == {"Text": value}
 
-        rt_text(" Aa" + chr(0xA0) + chr(0xC4) + chr(0xFF))  # Latin1
+        rt_text(f" Aa{chr(160)}{chr(196)}{chr(255)}")
         rt_text(chr(0x400) + chr(0x472) + chr(0x4FF))  # Cyrillic
         # CJK:
         rt_text(chr(0x4E00) + chr(0x66F0) + chr(0x9FBA) + chr(0x3042) + chr(0xAC00))
-        rt_text("A" + chr(0xC4) + chr(0x472) + chr(0x3042))  # Combined
+        rt_text(f"A{chr(196)}{chr(1138)}{chr(12354)}")
 
     def test_scary(self):
         # Check reading of evil PNG file.  For information, see:

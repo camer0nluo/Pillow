@@ -11,7 +11,7 @@ from .helper import assert_image_equal, hopper, magick_command
 def helper_save_as_palm(tmp_path, mode):
     # Arrange
     im = hopper(mode)
-    outfile = str(tmp_path / ("temp_" + mode + ".palm"))
+    outfile = str(tmp_path / f"temp_{mode}.palm")
 
     # Act
     im.save(outfile)
@@ -23,10 +23,11 @@ def helper_save_as_palm(tmp_path, mode):
 
 def open_with_magick(magick, tmp_path, f):
     outfile = str(tmp_path / "temp.png")
-    rc = subprocess.call(
-        magick + [f, outfile], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
-    )
-    if rc:
+    if rc := subprocess.call(
+        magick + [f, outfile],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    ):
         raise OSError
     return Image.open(outfile)
 

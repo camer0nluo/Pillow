@@ -26,7 +26,6 @@ def test_fuzz_images(path):
     try:
         with open(path, "rb") as f:
             fuzzers.fuzz_image(f.read())
-            assert True
     except (
         OSError,
         SyntaxError,
@@ -35,15 +34,13 @@ def test_fuzz_images(path):
         NotImplementedError,
         OverflowError,
     ):
-        # Known exceptions that are through from Pillow
-        assert True
+        pass
     except (
         Image.DecompressionBombError,
         Image.DecompressionBombWarning,
         Image.UnidentifiedImageError,
     ):
-        # Known Image.* exceptions
-        assert True
+        pass
     finally:
         fuzzers.disable_decompressionbomb_error()
 
@@ -59,4 +56,3 @@ def test_fuzz_fonts(path):
             fuzzers.fuzz_font(f.read())
         except (Image.DecompressionBombError, Image.DecompressionBombWarning):
             pass
-        assert True

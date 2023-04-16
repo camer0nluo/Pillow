@@ -158,19 +158,17 @@ def _dxtc_alpha(a0, a1, ac0, ac1, ai):
         ac = (ac1 >> (ai - 16)) & 7
 
     if ac == 0:
-        alpha = a0
+        return a0
     elif ac == 1:
-        alpha = a1
+        return a1
     elif a0 > a1:
-        alpha = ((8 - ac) * a0 + (ac - 1) * a1) // 7
+        return ((8 - ac) * a0 + (ac - 1) * a1) // 7
     elif ac == 6:
-        alpha = 0
+        return 0
     elif ac == 7:
-        alpha = 0xFF
+        return 0xFF
     else:
-        alpha = ((6 - ac) * a0 + (ac - 1) * a1) // 5
-
-    return alpha
+        return ((6 - ac) * a0 + (ac - 1) * a1) // 5
 
 
 def _dxt5(data, width, height):

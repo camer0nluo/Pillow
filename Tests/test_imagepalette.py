@@ -28,9 +28,7 @@ def test_getcolor():
     assert len(palette.palette) == 0
     assert len(palette.colors) == 0
 
-    test_map = {}
-    for i in range(256):
-        test_map[palette.getcolor((i, i, i))] = i
+    test_map = {palette.getcolor((i, i, i)): i for i in range(256)}
     assert len(test_map) == 256
 
     # Colors can be converted between RGB and RGBA
@@ -104,7 +102,7 @@ def test_make_linear_lut():
     assert isinstance(lut, list)
     assert len(lut) == 256
     # Check values
-    for i in range(0, len(lut)):
+    for i in range(len(lut)):
         assert lut[i] == i
 
 

@@ -14,7 +14,7 @@ from .helper import hopper, mark_if_feature_version
 def helper_save_as_pdf(tmp_path, mode, **kwargs):
     # Arrange
     im = hopper(mode)
-    outfile = str(tmp_path / ("temp_" + mode + ".pdf"))
+    outfile = str(tmp_path / f"temp_{mode}.pdf")
 
     # Act
     im.save(outfile, **kwargs)

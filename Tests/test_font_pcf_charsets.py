@@ -43,7 +43,7 @@ def save_font(request, tmp_path, encoding):
 
     def delete_tempfile():
         try:
-            os.remove(tempname[:-4] + ".pbm")
+            os.remove(f"{tempname[:-4]}.pbm")
         except OSError:
             pass  # report?
 

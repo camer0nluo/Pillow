@@ -153,7 +153,7 @@ def assert_tuple_approx_equal(actuals, targets, threshold, msg):
     for i, target in enumerate(targets):
         value *= target - threshold <= actuals[i] <= target + threshold
 
-    assert value, msg + ": " + repr(actuals) + " != " + repr(targets)
+    assert value, f"{msg}: {repr(actuals)} != {repr(targets)}"
 
 
 def skip_unless_feature(feature):
@@ -203,17 +203,7 @@ class PillowLeakTestCase:
         from resource import RUSAGE_SELF, getrusage
 
         mem = getrusage(RUSAGE_SELF).ru_maxrss
-        if sys.platform == "darwin":
-            # man 2 getrusage:
-            #     ru_maxrss
-            # This is the maximum resident set size utilized (in bytes).
-            return mem / 1024  # Kb
-        else:
-            # linux
-            # man 2 getrusage
-            #        ru_maxrss (since Linux 2.6.32)
-            #  This is the maximum resident set size used (in kilobytes).
-            return mem  # Kb
+        return mem / 1024 if sys.platform == "darwin" else mem
 
     def _test_leak(self, core):
         start_mem = self._get_mem_usage()
@@ -272,8 +262,7 @@ def netpbm_available():
 
 def magick_command():
     if sys.platform == "win32":
-        magickhome = os.environ.get("MAGICK_HOME", "")
-        if magickhome:
+        if magickhome := os.environ.get("MAGICK_HOME", ""):
             imagemagick = [os.path.join(magickhome, "convert.exe")]
             graphicsmagick = [os.path.join(magickhome, "gm.exe"), "convert"]
         else:

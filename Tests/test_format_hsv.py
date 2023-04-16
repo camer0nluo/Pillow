@@ -42,9 +42,7 @@ def wedge():
     b.paste(w, (px, 0))
     b.paste(w90, (2 * px, 0))
 
-    img = Image.merge("RGB", (r, g, b))
-
-    return img
+    return Image.merge("RGB", (r, g, b))
 
 
 def to_xxx_colorsys(im, func, mode):
@@ -63,9 +61,7 @@ def to_xxx_colorsys(im, func, mode):
         bytes(chr(h) + chr(s) + chr(v), "latin-1") for (h, s, v) in converted
     )
 
-    hsv = Image.frombytes(mode, r.size, new_bytes)
-
-    return hsv
+    return Image.frombytes(mode, r.size, new_bytes)
 
 
 def to_hsv_colorsys(im):

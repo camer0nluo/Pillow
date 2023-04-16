@@ -16,9 +16,7 @@ def rotate(im, mode, angle, center=None, translate=None):
     assert out.size == im.size  # default rotate clips output
     out = im.rotate(angle, center=center, translate=translate, expand=1)
     assert out.mode == mode
-    if angle % 180 == 0:
-        assert out.size == im.size
-    elif im.size == (0, 0):
+    if angle % 180 == 0 or im.size == (0, 0):
         assert out.size == im.size
     else:
         assert out.size != im.size

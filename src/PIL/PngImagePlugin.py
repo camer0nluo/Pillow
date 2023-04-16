@@ -176,9 +176,8 @@ class ChunkStream:
             pos = self.fp.tell()
             length = i32(s)
 
-        if not is_cid(cid):
-            if not ImageFile.LOAD_TRUNCATED_IMAGES:
-                raise SyntaxError(f"broken PNG file (chunk {repr(cid)})")
+        if not is_cid(cid) and not ImageFile.LOAD_TRUNCATED_IMAGES:
+            raise SyntaxError(f"broken PNG file (chunk {repr(cid)})")
 
         return cid, pos, length
 
@@ -526,11 +525,11 @@ class PngStream(ChunkStream):
             raise ValueError("Truncated pHYs chunk")
         px, py = i32(s, 0), i32(s, 4)
         unit = s[8]
-        if unit == 1:  # meter
+        if unit == 0:
+            self.im_info["aspect"] = px, py
+        elif unit == 1:
             dpi = px * 0.0254, py * 0.0254
             self.im_info["dpi"] = dpi
-        elif unit == 0:
-            self.im_info["aspect"] = px, py
         return s
 
     def chunk_tEXt(self, pos, length):
@@ -562,10 +561,7 @@ class PngStream(ChunkStream):
         except ValueError:
             k = s
             v = b""
-        if v:
-            comp_method = v[0]
-        else:
-            comp_method = 0
+        comp_method = v[0] if v else 0
         if comp_method != 0:
             raise SyntaxError(f"Unknown compression method {comp_method} in zTXt chunk")
         try:
@@ -603,17 +599,16 @@ class PngStream(ChunkStream):
         except ValueError:
             return s
         if cf != 0:
-            if cm == 0:
-                try:
-                    v = _safe_zlib_decompress(v)
-                except ValueError:
-                    if ImageFile.LOAD_TRUNCATED_IMAGES:
-                        return s
-                    else:
-                        raise
-                except zlib.error:
+            if cm != 0:
+                return s
+            try:
+                v = _safe_zlib_decompress(v)
+            except ValueError:
+                if ImageFile.LOAD_TRUNCATED_IMAGES:
                     return s
-            else:
+                else:
+                    raise
+            except zlib.error:
                 return s
         try:
             k = k.decode("latin-1", "strict")
@@ -682,8 +677,7 @@ class PngStream(ChunkStream):
     def chunk_fdAT(self, pos, length):
         if length < 4:
             if ImageFile.LOAD_TRUNCATED_IMAGES:
-                s = ImageFile._safe_read(self.fp, length)
-                return s
+                return ImageFile._safe_read(self.fp, length)
             raise ValueError("APNG contains truncated fDAT chunk")
         s = ImageFile._safe_read(self.fp, 4)
         seq = i32(s)
@@ -762,11 +756,7 @@ class PngImageFile(ImageFile.ImageFile):
             rawmode, data = self.png.im_palette
             self.palette = ImagePalette.raw(rawmode, data)
 
-        if cid == b"fdAT":
-            self.__prepare_idat = length - 4
-        else:
-            self.__prepare_idat = length  # used by load_prepare()
-
+        self.__prepare_idat = length - 4 if cid == b"fdAT" else length
         if self.png.im_n_frames is not None:
             self._close_exclusive_fp_after_loading = False
             self.png.save_rewind()
@@ -949,11 +939,7 @@ class PngImageFile(ImageFile.ImageFile):
                 self.__idat = length  # empty chunks are allowed
 
         # read more data from this chunk
-        if read_bytes <= 0:
-            read_bytes = self.__idat
-        else:
-            read_bytes = min(read_bytes, self.__idat)
-
+        read_bytes = self.__idat if read_bytes <= 0 else min(read_bytes, self.__idat)
         self.__idat = self.__idat - read_bytes
 
         return self.fp.read(read_bytes)
@@ -995,15 +981,14 @@ class PngImageFile(ImageFile.ImageFile):
         if not self.is_animated:
             self.png.close()
             self.png = None
-        else:
-            if self._prev_im and self.blend_op == Blend.OP_OVER:
-                updated = self._crop(self.im, self.dispose_extent)
-                self._prev_im.paste(
-                    updated, self.dispose_extent, updated.convert("RGBA")
-                )
-                self.im = self._prev_im
-                if self.pyaccess:
-                    self.pyaccess = None
+        elif self._prev_im and self.blend_op == Blend.OP_OVER:
+            updated = self._crop(self.im, self.dispose_extent)
+            self._prev_im.paste(
+                updated, self.dispose_extent, updated.convert("RGBA")
+            )
+            self.im = self._prev_im
+            if self.pyaccess:
+                self.pyaccess = None
 
     def _getexif(self):
         if "exif" not in self.info:
@@ -1230,12 +1215,10 @@ def _save(im, fp, filename, chunk=putchunk, save_all=False):
         if "bits" in im.encoderinfo:
             # number of bits specified by user
             colors = min(1 << im.encoderinfo["bits"], 256)
+        elif im.palette:
+            colors = max(min(len(im.palette.getdata()[1]) // 3, 256), 1)
         else:
-            # check palette contents
-            if im.palette:
-                colors = max(min(len(im.palette.getdata()[1]) // 3, 256), 1)
-            else:
-                colors = 256
+            colors = 256
 
         if colors <= 16:
             if colors <= 2:
@@ -1278,8 +1261,7 @@ def _save(im, fp, filename, chunk=putchunk, save_all=False):
 
     chunks = [b"cHRM", b"gAMA", b"sBIT", b"sRGB", b"tIME"]
 
-    icc = im.encoderinfo.get("icc_profile", im.info.get("icc_profile"))
-    if icc:
+    if icc := im.encoderinfo.get("icc_profile", im.info.get("icc_profile")):
         # ICC profile
         # according to PNG spec, the iCCP chunk contains:
         # Profile name  1-79 bytes (character string)
@@ -1335,19 +1317,16 @@ def _save(im, fp, filename, chunk=putchunk, save_all=False):
         elif im.mode == "RGB":
             red, green, blue = transparency
             chunk(fp, b"tRNS", o16(red) + o16(green) + o16(blue))
-        else:
-            if "transparency" in im.encoderinfo:
-                # don't bother with transparency if it's an RGBA
-                # and it's in the info dict. It's probably just stale.
-                raise OSError("cannot use transparency for this mode")
-    else:
-        if im.mode == "P" and im.im.getpalettemode() == "RGBA":
-            alpha = im.im.getpalette("RGBA", "A")
-            alpha_bytes = colors
-            chunk(fp, b"tRNS", alpha[:alpha_bytes])
+        elif "transparency" in im.encoderinfo:
+            # don't bother with transparency if it's an RGBA
+            # and it's in the info dict. It's probably just stale.
+            raise OSError("cannot use transparency for this mode")
+    elif im.mode == "P" and im.im.getpalettemode() == "RGBA":
+        alpha = im.im.getpalette("RGBA", "A")
+        alpha_bytes = colors
+        chunk(fp, b"tRNS", alpha[:alpha_bytes])
 
-    dpi = im.encoderinfo.get("dpi")
-    if dpi:
+    if dpi := im.encoderinfo.get("dpi"):
         chunk(
             fp,
             b"pHYs",
@@ -1364,8 +1343,7 @@ def _save(im, fp, filename, chunk=putchunk, save_all=False):
                 chunks.remove(cid)
                 chunk(fp, cid, data)
 
-    exif = im.encoderinfo.get("exif", im.info.get("exif"))
-    if exif:
+    if exif := im.encoderinfo.get("exif", im.info.get("exif")):
         if isinstance(exif, Image.Exif):
             exif = exif.tobytes(8)
         if exif.startswith(b"Exif\x00\x00"):

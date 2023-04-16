@@ -64,12 +64,12 @@ class TestImage:
     def test_sanity(self):
 
         im = Image.new("L", (100, 100))
-        assert repr(im)[:45] == "<PIL.Image.Image image mode=L size=100x100 at"
+        assert repr(im).startswith("<PIL.Image.Image image mode=L size=100x100 at")
         assert im.mode == "L"
         assert im.size == (100, 100)
 
         im = Image.new("RGB", (100, 100))
-        assert repr(im)[:45] == "<PIL.Image.Image image mode=RGB size=100x100 "
+        assert repr(im).startswith("<PIL.Image.Image image mode=RGB size=100x100 ")
         assert im.mode == "RGB"
         assert im.size == (100, 100)
 
@@ -160,7 +160,7 @@ class TestImage:
             for ext in (".jpg", ".jp2"):
                 if ext == ".jp2" and not features.check_codec("jpg_2000"):
                     pytest.skip("jpg_2000 not available")
-                temp_file = str(tmp_path / ("temp." + ext))
+                temp_file = str(tmp_path / f"temp.{ext}")
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
                 im.save(Path(temp_file))
@@ -702,11 +702,11 @@ class TestImage:
 
         # Test that exif data is cleared after another load
         exif.load(None)
-        assert dict(exif) == {}
+        assert not dict(exif)
 
         # Test loading just the EXIF header
         exif.load(b"Exif\x00\x00")
-        assert dict(exif) == {}
+        assert not dict(exif)
 
     @mark_if_feature_version(
         pytest.mark.valgrind_known_error, "libjpeg_turbo", "2.0", reason="Known Failing"

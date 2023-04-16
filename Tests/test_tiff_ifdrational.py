@@ -52,10 +52,7 @@ def test_nonetype():
 
 
 def test_ifd_rational_save(tmp_path):
-    methods = (True, False)
-    if not features.check("libtiff"):
-        methods = (False,)
-
+    methods = (True, False) if features.check("libtiff") else (False, )
     for libtiff in methods:
         TiffImagePlugin.WRITE_LIBTIFF = libtiff
 

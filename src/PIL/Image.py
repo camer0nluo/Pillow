@@ -397,7 +397,7 @@ def _getdecoder(mode, decoder_name, args, extra=()):
 
     try:
         # get decoder
-        decoder = getattr(core, decoder_name + "_decoder")
+        decoder = getattr(core, f"{decoder_name}_decoder")
     except AttributeError as e:
         raise OSError(f"decoder {decoder_name} not available") from e
     return decoder(mode, *args + extra)
@@ -420,7 +420,7 @@ def _getencoder(mode, encoder_name, args, extra=()):
 
     try:
         # get encoder
-        encoder = getattr(core, encoder_name + "_encoder")
+        encoder = getattr(core, f"{encoder_name}_encoder")
     except AttributeError as e:
         raise OSError(f"encoder {encoder_name} not available") from e
     return encoder(mode, *args + extra)
@@ -601,10 +601,7 @@ class Image:
             self.load()
 
     def _dump(self, file=None, format=None, **options):
-        suffix = ""
-        if format:
-            suffix = "." + format
-
+        suffix = f".{format}" if format else ""
         if not file:
             f, filename = tempfile.mkstemp(suffix)
             os.close(f)
@@ -673,19 +670,15 @@ class Image:
 
     @property
     def __array_interface__(self):
-        # numpy array interface support
-        new = {}
         shape, typestr = _conv_type_shape(self)
-        new["shape"] = shape
-        new["typestr"] = typestr
-        new["version"] = 3
-        if self.mode == "1":
-            # Binary images need to be extended from bits to bytes
-            # See: https://github.com/python-pillow/Pillow/issues/350
-            new["data"] = self.tobytes("raw", "L")
-        else:
-            new["data"] = self.tobytes()
-        return new
+        return {
+            "shape": shape,
+            "typestr": typestr,
+            "version": 3,
+            "data": self.tobytes("raw", "L")
+            if self.mode == "1"
+            else self.tobytes(),
+        }
 
     def __getstate__(self):
         return [self.info, self.mode, self.size, self.getpalette(), self.tobytes()]
@@ -908,10 +901,7 @@ class Image:
         has_transparency = self.info.get("transparency") is not None
         if not mode and self.mode == "P":
             # determine default mode
-            if self.palette:
-                mode = self.palette.mode
-            else:
-                mode = "RGB"
+            mode = self.palette.mode if self.palette else "RGB"
             if mode == "RGB" and has_transparency:
                 mode = "RGBA"
         if not mode or (mode == self.mode and not matrix):
@@ -934,8 +924,10 @@ class Image:
                     transparency = convert_transparency(matrix, transparency)
                 elif len(mode) == 3:
                     transparency = tuple(
-                        convert_transparency(matrix[i * 4 : i * 4 + 4], transparency)
-                        for i in range(0, len(transparency))
+                        convert_transparency(
+                            matrix[i * 4 : i * 4 + 4], transparency
+                        )
+                        for i in range(len(transparency))
                     )
                 new.info["transparency"] = transparency
             return new
@@ -1104,11 +1096,7 @@ class Image:
         self.load()
 
         if method is None:
-            # defaults:
-            method = Quantize.MEDIANCUT
-            if self.mode == "RGBA":
-                method = Quantize.FASTOCTREE
-
+            method = Quantize.FASTOCTREE if self.mode == "RGBA" else Quantize.MEDIANCUT
         if self.mode == "RGBA" and method not in (
             Quantize.FASTOCTREE,
             Quantize.LIBIMAGEQUANT,
@@ -1124,7 +1112,7 @@ class Image:
             palette.load()
             if palette.mode != "P":
                 raise ValueError("bad mode for palette image")
-            if self.mode != "RGB" and self.mode != "L":
+            if self.mode not in ["RGB", "L"]:
                 raise ValueError(
                     "only RGB or L mode images can be quantized to a palette"
                 )
@@ -1251,9 +1239,10 @@ class Image:
         if self.im.bands == 1 or multiband:
             return self._new(filter.filter(self.im))
 
-        ims = []
-        for c in range(self.im.bands):
-            ims.append(self._new(filter.filter(self.im.getband(c))))
+        ims = [
+            self._new(filter.filter(self.im.getband(c)))
+            for c in range(self.im.bands)
+        ]
         return merge(self.mode, ims)
 
     def getbands(self):
@@ -1298,13 +1287,8 @@ class Image:
         self.load()
         if self.mode in ("1", "L", "P"):
             h = self.im.histogram()
-            out = []
-            for i in range(256):
-                if h[i]:
-                    out.append((h[i], i))
-            if len(out) > maxcolors:
-                return None
-            return out
+            out = [(h[i], i) for i in range(256) if h[i]]
+            return None if len(out) > maxcolors else out
         return self.im.getcolors(maxcolors)
 
     def getdata(self, band=None):
@@ -1326,9 +1310,7 @@ class Image:
         """
 
         self.load()
-        if band is not None:
-            return self.im.getband(band)
-        return self.im  # could be abused
+        return self.im.getband(band) if band is not None else self.im
 
     def getextrema(self):
         """
@@ -1342,9 +1324,7 @@ class Image:
 
         self.load()
         if self.im.bands > 1:
-            extrema = []
-            for i in range(self.im.bands):
-                extrema.append(self.im.getband(i).getextrema())
+            extrema = [self.im.getband(i).getextrema() for i in range(self.im.bands)]
             return tuple(extrema)
         return self.im.getextrema()
 
@@ -1402,10 +1382,8 @@ class Image:
 
         # XMP tags
         if 0x0112 not in self._exif:
-            xmp_tags = self.info.get("XML:com.adobe.xmp")
-            if xmp_tags:
-                match = re.search(r'tiff:Orientation(="|>)([0-9])', xmp_tags)
-                if match:
+            if xmp_tags := self.info.get("XML:com.adobe.xmp"):
+                if match := re.search(r'tiff:Orientation(="|>)([0-9])', xmp_tags):
                     self._exif[0x0112] = int(match[2])
 
         return self._exif
@@ -1481,9 +1459,7 @@ class Image:
         """
 
         self.load()
-        if self.pyaccess:
-            return self.pyaccess.getpixel(xy)
-        return self.im.getpixel(xy)
+        return self.pyaccess.getpixel(xy) if self.pyaccess else self.im.getpixel(xy)
 
     def getprojection(self):
         """
@@ -1620,10 +1596,11 @@ class Image:
 
         elif isImageType(im):
             im.load()
-            if self.mode != im.mode:
-                if self.mode != "RGB" or im.mode not in ("LA", "RGBA", "RGBa"):
-                    # should use an adapter for this!
-                    im = im.convert(self.mode)
+            if self.mode != im.mode and (
+                self.mode != "RGB" or im.mode not in ("LA", "RGBA", "RGBa")
+            ):
+                # should use an adapter for this!
+                im = im.convert(self.mode)
             im = im.im
 
         self._ensure_mutable()
@@ -1652,9 +1629,9 @@ class Image:
             raise ValueError("Source must be a tuple")
         if not isinstance(dest, (list, tuple)):
             raise ValueError("Destination must be a tuple")
-        if not len(source) in (2, 4):
+        if len(source) not in {2, 4}:
             raise ValueError("Source must be a 2 or 4-tuple")
-        if not len(dest) == 2:
+        if len(dest) != 2:
             raise ValueError("Destination must be a 2-tuple")
         if min(source) < 0:
             raise ValueError("Source must be non-negative")
@@ -1663,20 +1640,12 @@ class Image:
             source = source + im.size
 
         # over image, crop if it's not the whole thing.
-        if source == (0, 0) + im.size:
-            overlay = im
-        else:
-            overlay = im.crop(source)
-
+        overlay = im if source == (0, 0) + im.size else im.crop(source)
         # target for the paste
         box = dest + (dest[0] + overlay.width, dest[1] + overlay.height)
 
         # destination image. don't copy if we're using the whole image.
-        if box == (0, 0) + self.size:
-            background = self
-        else:
-            background = self.crop(box)
-
+        background = self if box == (0, 0) + self.size else self.crop(box)
         result = alpha_composite(background, overlay)
         self.paste(result, box)
 
@@ -1744,7 +1713,7 @@ class Image:
         if self.mode not in ("LA", "PA", "RGBA"):
             # attempt to promote self to a matching alpha mode
             try:
-                mode = getmodebase(self.mode) + "A"
+                mode = f"{getmodebase(self.mode)}A"
                 try:
                     self.im.setmode(mode)
                 except (AttributeError, ValueError) as e:
@@ -1758,11 +1727,7 @@ class Image:
             except KeyError as e:
                 raise ValueError("illegal image mode") from e
 
-        if self.mode in ("LA", "PA"):
-            band = 1
-        else:
-            band = 3
-
+        band = 1 if self.mode in ("LA", "PA") else 3
         if isImageType(alpha):
             # alpha layer
             if alpha.mode not in ("1", "L"):
@@ -1866,7 +1831,7 @@ class Image:
         if (
             self.mode == "P"
             and isinstance(value, (list, tuple))
-            and len(value) in [3, 4]
+            and len(value) in {3, 4}
         ):
             # RGB or RGBA value for a P image
             value = self.palette.getcolor(value, self)
@@ -1940,7 +1905,7 @@ class Image:
         # m_im.putpalette(mapping_palette, 'L')  # converts to 'P'
         # or just force it.
         # UNDONE -- this is part of the general issue with palettes
-        m_im.im.putpalette(palette_mode + ";L", m_im.palette.tobytes())
+        m_im.im.putpalette(f"{palette_mode};L", m_im.palette.tobytes())
 
         m_im = m_im.convert("L")
 
@@ -2040,7 +2005,7 @@ class Image:
                 )
             ]
             raise ValueError(
-                message + " Use " + ", ".join(filters[:-1]) + " or " + filters[-1]
+                f"{message} Use " + ", ".join(filters[:-1]) + " or " + filters[-1]
             )
 
         if reducing_gap is not None and reducing_gap < 1.0:
@@ -2049,11 +2014,7 @@ class Image:
         size = tuple(size)
 
         self.load()
-        if box is None:
-            box = (0, 0) + self.size
-        else:
-            box = tuple(box)
-
+        box = (0, 0) + self.size if box is None else tuple(box)
         if self.size == size and box == (0, 0) + self.size:
             return self.copy()
 
@@ -2102,11 +2063,7 @@ class Image:
         if not isinstance(factor, (list, tuple)):
             factor = (factor, factor)
 
-        if box is None:
-            box = (0, 0) + self.size
-        else:
-            box = tuple(box)
-
+        box = (0, 0) + self.size if box is None else tuple(box)
         if factor == (1, 1) and box == (0, 0) + self.size:
             return self.copy()
 
@@ -2187,16 +2144,8 @@ class Image:
 
         w, h = self.size
 
-        if translate is None:
-            post_trans = (0, 0)
-        else:
-            post_trans = translate
-        if center is None:
-            # FIXME These should be rounded to ints?
-            rotn_center = (w / 2.0, h / 2.0)
-        else:
-            rotn_center = center
-
+        post_trans = (0, 0) if translate is None else translate
+        rotn_center = (w / 2.0, h / 2.0) if center is None else center
         angle = -math.radians(angle)
         matrix = [
             round(math.cos(angle), 15),
@@ -2306,11 +2255,7 @@ class Image:
 
         if format.upper() not in SAVE:
             init()
-        if save_all:
-            save_handler = SAVE_ALL[format.upper()]
-        else:
-            save_handler = SAVE[format.upper()]
-
+        save_handler = SAVE_ALL[format.upper()] if save_all else SAVE[format.upper()]
         created = False
         if open_fp:
             created = not os.path.exists(filename)
@@ -2393,10 +2338,7 @@ class Image:
         """
 
         self.load()
-        if self.im.bands == 1:
-            ims = [self.copy()]
-        else:
-            ims = map(self._new, self.im.split())
+        ims = [self.copy()] if self.im.bands == 1 else map(self._new, self.im.split())
         return tuple(ims)
 
     def getchannel(self, channel):
@@ -2664,7 +2606,7 @@ class Image:
                 )
             ]
             raise ValueError(
-                message + " Use " + ", ".join(filters[:-1]) + " or " + filters[-1]
+                f"{message} Use " + ", ".join(filters[:-1]) + " or " + filters[-1]
             )
 
         image.load()
@@ -2802,7 +2744,11 @@ def new(mode, size, color=0):
         color = ImageColor.getcolor(color, mode)
 
     im = Image()
-    if mode == "P" and isinstance(color, (list, tuple)) and len(color) in [3, 4]:
+    if (
+        mode == "P"
+        and isinstance(color, (list, tuple))
+        and len(color) in {3, 4}
+    ):
         # RGB or RGBA value for a P image
         from . import ImagePalette
 
@@ -2971,11 +2917,7 @@ def fromarray(obj, mode=None):
 
     size = 1 if ndim == 1 else shape[1], shape[0]
     if strides is not None:
-        if hasattr(obj, "tobytes"):
-            obj = obj.tobytes()
-        else:
-            obj = obj.tostring()
-
+        obj = obj.tobytes() if hasattr(obj, "tobytes") else obj.tostring()
     return frombuffer(mode, size, obj, "raw", rawmode, 0, 1)
 
 
@@ -2998,8 +2940,6 @@ def fromqpixmap(im):
 
 
 _fromarray_typemap = {
-    # (shape, typestr) => mode, rawmode
-    # first two members of shape are set to one
     ((1, 1), "|b1"): ("1", "1;8"),
     ((1, 1), "|u1"): ("L", "L"),
     ((1, 1), "|i1"): ("I", "I;8"),
@@ -3018,9 +2958,8 @@ _fromarray_typemap = {
     ((1, 1, 2), "|u1"): ("LA", "LA"),
     ((1, 1, 3), "|u1"): ("RGB", "RGB"),
     ((1, 1, 4), "|u1"): ("RGBA", "RGBA"),
-    # shortcuts:
-    ((1, 1), _ENDIAN + "i4"): ("I", "I"),
-    ((1, 1), _ENDIAN + "f4"): ("F", "F"),
+    ((1, 1), f"{_ENDIAN}i4"): ("I", "I"),
+    ((1, 1), f"{_ENDIAN}f4"): ("F", "F"),
 }
 
 
@@ -3137,9 +3076,8 @@ def open(fp, mode="r", formats=None):
 
     im = _open_core(fp, filename, prefix, formats)
 
-    if im is None:
-        if init():
-            im = _open_core(fp, filename, prefix, formats)
+    if im is None and init():
+        im = _open_core(fp, filename, prefix, formats)
 
     if im:
         im._exclusive_fp = exclusive_fp
@@ -3548,10 +3486,7 @@ class Exif(MutableMapping):
         from . import TiffImagePlugin
 
         self.fp = fp
-        if offset is not None:
-            self.head = self._get_head()
-        else:
-            self.head = self.fp.read(8)
+        self.head = self._get_head() if offset is not None else self.fp.read(8)
         self._info = TiffImagePlugin.ImageFileDirectory_v2(self.head)
         if self.endian is None:
             self.endian = self._info._endian
@@ -3565,9 +3500,8 @@ class Exif(MutableMapping):
 
         # get EXIF extension
         if 0x8769 in self:
-            ifd = self._get_ifd_dict(self[0x8769])
-            if ifd:
-                merged_dict.update(ifd)
+            if ifd := self._get_ifd_dict(self[0x8769]):
+                merged_dict |= ifd
 
         # GPS
         if 0x8825 in self:
@@ -3613,7 +3547,7 @@ class Exif(MutableMapping):
                         ifd_data = tag_data[ifd_offset:]
 
                         makernote = {}
-                        for i in range(0, struct.unpack("<H", ifd_data[:2])[0]):
+                        for i in range(struct.unpack("<H", ifd_data[:2])[0]):
                             ifd_tag, typ, count, data = struct.unpack(
                                 "<HHL4s", ifd_data[i * 12 + 2 : (i + 1) * 12 + 2]
                             )
@@ -3648,7 +3582,7 @@ class Exif(MutableMapping):
                         self._ifds[tag] = dict(self._fixup_dict(makernote))
                     elif self.get(0x010F) == "Nintendo":
                         makernote = {}
-                        for i in range(0, struct.unpack(">H", tag_data[:2])[0]):
+                        for i in range(struct.unpack(">H", tag_data[:2])[0]):
                             ifd_tag, typ, count, data = struct.unpack(
                                 ">HHL4s", tag_data[i * 12 + 2 : (i + 1) * 12 + 2]
                             )

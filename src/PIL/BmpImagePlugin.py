@@ -93,16 +93,14 @@ class BmpImageFile(ImageFile.ImageFile):
             file_info["compression"] = self.RAW
             file_info["palette_padding"] = 3
 
-        # --------------------------------------------- Windows Bitmap v2 to v5
-        # v3, OS/2 v2, v4, v5
         elif file_info["header_size"] in (40, 64, 108, 124):
             file_info["y_flip"] = header_data[7] == 0xFF
             file_info["direction"] = 1 if file_info["y_flip"] else -1
             file_info["width"] = i32(header_data, 0)
             file_info["height"] = (
-                i32(header_data, 4)
-                if not file_info["y_flip"]
-                else 2**32 - i32(header_data, 4)
+                2**32 - i32(header_data, 4)
+                if file_info["y_flip"]
+                else i32(header_data, 4)
             )
             file_info["planes"] = i16(header_data, 8)
             file_info["bits"] = i16(header_data, 10)
@@ -181,6 +179,8 @@ class BmpImageFile(ImageFile.ImageFile):
                 24: [(0xFF0000, 0xFF00, 0xFF)],
                 16: [(0xF800, 0x7E0, 0x1F), (0x7C00, 0x3E0, 0x1F)],
             }
+            if file_info["bits"] not in SUPPORTED:
+                raise OSError("Unsupported BMP bitfields layout")
             MASK_MODES = {
                 (32, (0xFF0000, 0xFF00, 0xFF, 0x0)): "BGRX",
                 (32, (0xFF000000, 0xFF0000, 0xFF00, 0x0)): "XBGR",
@@ -192,20 +192,17 @@ class BmpImageFile(ImageFile.ImageFile):
                 (16, (0xF800, 0x7E0, 0x1F)): "BGR;16",
                 (16, (0x7C00, 0x3E0, 0x1F)): "BGR;15",
             }
-            if file_info["bits"] in SUPPORTED:
-                if (
-                    file_info["bits"] == 32
-                    and file_info["rgba_mask"] in SUPPORTED[file_info["bits"]]
-                ):
-                    raw_mode = MASK_MODES[(file_info["bits"], file_info["rgba_mask"])]
-                    self.mode = "RGBA" if "A" in raw_mode else self.mode
-                elif (
-                    file_info["bits"] in (24, 16)
-                    and file_info["rgb_mask"] in SUPPORTED[file_info["bits"]]
-                ):
-                    raw_mode = MASK_MODES[(file_info["bits"], file_info["rgb_mask"])]
-                else:
-                    raise OSError("Unsupported BMP bitfields layout")
+            if (
+                file_info["bits"] == 32
+                and file_info["rgba_mask"] in SUPPORTED[file_info["bits"]]
+            ):
+                raw_mode = MASK_MODES[(file_info["bits"], file_info["rgba_mask"])]
+                self.mode = "RGBA" if "A" in raw_mode else self.mode
+            elif (
+                file_info["bits"] in (24, 16)
+                and file_info["rgb_mask"] in SUPPORTED[file_info["bits"]]
+            ):
+                raw_mode = MASK_MODES[(file_info["bits"], file_info["rgb_mask"])]
             else:
                 raise OSError("Unsupported BMP bitfields layout")
         elif file_info["compression"] == self.RAW:
@@ -219,34 +216,32 @@ class BmpImageFile(ImageFile.ImageFile):
         # --------------- Once the header is processed, process the palette/LUT
         if self.mode == "P":  # Paletted for 1, 4 and 8 bit images
 
-            # ---------------------------------------------------- 1-bit images
-            if not (0 < file_info["colors"] <= 65536):
+            if not 0 < file_info["colors"] <= 65536:
                 raise OSError(f"Unsupported BMP Palette size ({file_info['colors']})")
+            padding = file_info["palette_padding"]
+            palette = read(padding * file_info["colors"])
+            greyscale = True
+            indices = (
+                (0, 255)
+                if file_info["colors"] == 2
+                else list(range(file_info["colors"]))
+            )
+
+            # ----------------- Check if greyscale and ignore palette if so
+            for ind, val in enumerate(indices):
+                rgb = palette[ind * padding : ind * padding + 3]
+                if rgb != o8(val) * 3:
+                    greyscale = False
+
+            # ------- If all colors are grey, white or black, ditch palette
+            if greyscale:
+                self.mode = "1" if file_info["colors"] == 2 else "L"
+                raw_mode = self.mode
             else:
-                padding = file_info["palette_padding"]
-                palette = read(padding * file_info["colors"])
-                greyscale = True
-                indices = (
-                    (0, 255)
-                    if file_info["colors"] == 2
-                    else list(range(file_info["colors"]))
+                self.mode = "P"
+                self.palette = ImagePalette.raw(
+                    "BGRX" if padding == 4 else "BGR", palette
                 )
-
-                # ----------------- Check if greyscale and ignore palette if so
-                for ind, val in enumerate(indices):
-                    rgb = palette[ind * padding : ind * padding + 3]
-                    if rgb != o8(val) * 3:
-                        greyscale = False
-
-                # ------- If all colors are grey, white or black, ditch palette
-                if greyscale:
-                    self.mode = "1" if file_info["colors"] == 2 else "L"
-                    raw_mode = self.mode
-                else:
-                    self.mode = "P"
-                    self.palette = ImagePalette.raw(
-                        "BGRX" if padding == 4 else "BGR", palette
-                    )
 
         # ---------------------------- Finally set the tile data for the plugin
         self.info["compression"] = file_info["compression"]
@@ -287,42 +282,40 @@ class BmpRleDecoder(ImageFile.PyDecoder):
             byte = self.fd.read(1)
             if not pixels or not byte:
                 break
-            num_pixels = pixels[0]
-            if num_pixels:
+            if num_pixels := pixels[0]:
                 # encoded mode
                 if x + num_pixels > self.state.xsize:
                     # Too much data for row
                     num_pixels = max(0, self.state.xsize - x)
                 data += byte * num_pixels
                 x += num_pixels
-            else:
-                if byte[0] == 0:
-                    # end of line
-                    while len(data) % self.state.xsize != 0:
-                        data += b"\x00"
-                    x = 0
-                elif byte[0] == 1:
-                    # end of bitmap
+            elif byte[0] == 0:
+                # end of line
+                while len(data) % self.state.xsize != 0:
+                    data += b"\x00"
+                x = 0
+            elif byte[0] == 1:
+                # end of bitmap
+                break
+            elif byte[0] == 2:
+                # delta
+                bytes_read = self.fd.read(2)
+                if len(bytes_read) < 2:
                     break
-                elif byte[0] == 2:
-                    # delta
-                    bytes_read = self.fd.read(2)
-                    if len(bytes_read) < 2:
-                        break
-                    right, up = self.fd.read(2)
-                    data += b"\x00" * (right + up * self.state.xsize)
-                    x = len(data) % self.state.xsize
-                else:
-                    # absolute mode
-                    bytes_read = self.fd.read(byte[0])
-                    data += bytes_read
-                    if len(bytes_read) < byte[0]:
-                        break
-                    x += byte[0]
+                right, up = self.fd.read(2)
+                data += b"\x00" * (right + up * self.state.xsize)
+                x = len(data) % self.state.xsize
+            else:
+                # absolute mode
+                bytes_read = self.fd.read(byte[0])
+                data += bytes_read
+                if len(bytes_read) < byte[0]:
+                    break
+                x += byte[0]
 
-                    # align to 16-bit word boundary
-                    if self.fd.tell() % 2 != 0:
-                        self.fd.seek(1, os.SEEK_CUR)
+                # align to 16-bit word boundary
+                if self.fd.tell() % 2 != 0:
+                    self.fd.seek(1, os.SEEK_CUR)
         rawmode = "L" if self.mode == "L" else "P"
         self.set_as_raw(bytes(data), (rawmode, 0, self.args[-1]))
         return -1, 0
